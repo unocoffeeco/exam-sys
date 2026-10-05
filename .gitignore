@@ -12,17 +12,26 @@
 
 # testing
 /coverage
+/.nyc_output
+test-results/
+playwright-report/
 
-# next.js
+# next.js & build outputs
 /.next/
 /out/
-
-# production
 /build
+/dist
 
-# misc
+# misc & OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 *.pem
+*.log
 
 # debug
 npm-debug.log*
@@ -30,8 +39,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -40,8 +50,16 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-!.env.example
+# firebase
 *serviceAccount*.json
 .firebase/
 emulator-data/
 firebase-debug.log
+
+# IDE / Editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
