@@ -5,6 +5,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     readonly problems?: string[],
+    readonly data?: Record<string, unknown>,
   ) {
     super(code);
     this.name = "ApiError";
@@ -15,6 +16,7 @@ export class ApiError extends Error {
 export const apiPost = <T = unknown>(path: string, body?: unknown) => apiRequest<T>("POST", path, body);
 export const apiPatch = <T = unknown>(path: string, body?: unknown) => apiRequest<T>("PATCH", path, body);
 export const apiGet = <T = unknown>(path: string) => apiRequest<T>("GET", path);
+export const apiDelete = <T = unknown>(path: string) => apiRequest<T>("DELETE", path);
 
 async function apiRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
   const user = getClientAuth().currentUser;
@@ -29,7 +31,7 @@ async function apiRequest<T>(method: string, path: string, body?: unknown): Prom
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const data = (await res.json().catch(() => ({}))) as { error?: string; problems?: string[] };
-  if (!res.ok) throw new ApiError(res.status, data.error ?? "UNKNOWN", data.problems);
+  if (!res.ok) throw new ApiError(res.status, data.error ?? "UNKNOWN", data.problems, data as Record<string, unknown>);
   return data as T;
 }
 

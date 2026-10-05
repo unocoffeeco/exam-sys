@@ -16,14 +16,14 @@ const MAX_PER_CALL = 500;
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const { uid } = await requireAuth(req, ["TEACHER"]);
+    const { uid, role } = await requireAuth(req, ["TEACHER", "ADMIN"]);
     const parsed = idSchema.safeParse((await ctx.params).id);
     if (!parsed.success) return Response.json({ error: "BAD_REQUEST" }, { status: 400 });
     const examId = parsed.data;
 
     const db = adminDb();
     const examSnap = await db.doc(`exams/${examId}`).get();
-    if (!examSnap.exists || examSnap.get("ownerId") !== uid) {
+    if (!examSnap.exists || (role === "TEACHER" && examSnap.get("ownerId") !== uid)) {
       return Response.json({ error: "NOT_FOUND" }, { status: 404 });
     }
     const keySnap = await db.doc(`examKeys/${examId}`).get();
@@ -31,7 +31,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const key = keySnap.get("answers") as Record<string, KeyEntry>;
 
     const cutoff = Date.now() - SUBMIT_GRACE_MS;
-    const snaps = await db.collection("attempts").where("examId", "==", examId).where("examOwnerId", "==", uid).get();
+    const base = db.collection("attempts").where("examId", "==", examId);
+    const snaps = await (role === "TEACHER" ? base.where("examOwnerId", "==", uid) : base).get();
     const expired = snaps.docs
       .filter((d) => d.get("submittedAt") == null && (d.get("deadlineAt") as Timestamp).toMillis() < cutoff)
       .slice(0, MAX_PER_CALL);

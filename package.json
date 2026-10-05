@@ -10,6 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "emulators": "firebase emulators:start",
+    "check:claims": "tsx --env-file=.env.local scripts/check-claims.ts",
+    "seed:real": "tsx --env-file=.env.local scripts/seed-real.ts",
+    "deploy:rules": "firebase deploy --only firestore:rules",
     "seed": "firebase emulators:exec --project demo-exam-system --only auth,firestore \"npx tsx scripts/seed.ts\"",
     "test:rules": "firebase emulators:exec --project demo-exam-system --only firestore \"vitest run --config vitest.rules.config.ts\""
   },

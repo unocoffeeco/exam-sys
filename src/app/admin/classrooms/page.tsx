@@ -7,6 +7,7 @@ export default function ClassroomsPage() {
       title="ห้องเรียน"
       codeHint="เช่น m4-1"
       deleteWarning="นักเรียนที่อยู่ในห้องนี้จะยังคงอ้างถึงรหัสเดิม ควรย้ายนักเรียนก่อนลบ"
+      moveStudents
     />
   );
 }

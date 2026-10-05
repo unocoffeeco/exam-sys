@@ -4,7 +4,7 @@
 - Next.js (App Router) + TypeScript (strict) + Tailwind + shadcn/ui
 - Firebase Spark plan (ฟรี): Auth + Firestore เท่านั้น
 - Server logic: Next.js API Routes + firebase-admin
-- Validation: Zod | Test: Vitest + Firebase Emulator
+- Validation: Zod | Test: Vitest (rules test ใช้ Emulator เฉพาะตอนทดสอบ rules)
 - Deploy: Vercel Hobby
 
 ## ข้อห้ามเด็ดขาด
@@ -65,4 +65,5 @@ firestore.rules, firestore.rules.test.ts, firebase.json
 - ทำทีละงานตามที่สั่ง อย่าทำเกินขอบเขต
 - ก่อนแก้ไฟล์ใหญ่ ให้สรุปแผนสั้น ๆ ก่อน
 - จบงานให้บอก: ไฟล์ที่แก้, วิธีทดสอบ, สิ่งที่ยังไม่ได้ทำ
-- ใช้ Firebase Emulator ตอน dev เสมอ ห้ามต่อ Firebase จริง
+- ใช้ Firebase จริง (โปรเจกต์ exam-sys-ce450) ผ่าน .env.local — ห้าม commit .env.local และ serviceAccountKey.json
+- ห้ามรันสคริปต์ที่เขียน/ลบข้อมูลโดยไม่ได้สั่ง และห้ามสร้างบัญชีทดสอบรหัสผ่านง่ายบน Firebase จริง

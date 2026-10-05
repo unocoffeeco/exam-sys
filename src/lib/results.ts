@@ -1,6 +1,6 @@
 // Teacher-side loading of an exam's results (client SDK, protected by Rules).
 // Quota: 2 queries per report view (attempts + attemptResults), no per-student reads.
-import { collection, getDocs, query, Timestamp, where } from "firebase/firestore";
+import { collection, getDocs, query, Timestamp, where, type DocumentData, type QuerySnapshot } from "firebase/firestore";
 import { SUBMIT_GRACE_MS } from "@/lib/exam-session";
 import { getClientFirestore } from "@/lib/firebase-client";
 import type { RowStatus } from "@/lib/report";
@@ -18,15 +18,9 @@ export type ResultRow = {
   awayTotalMs: number;
 };
 
-export async function loadExamResults(
-  examId: string,
-  uid: string,
-): Promise<{ rows: ResultRow[]; expiredCount: number }> {
-  const db = getClientFirestore();
-  const [attempts, results] = await Promise.all([
-    getDocs(query(collection(db, "attempts"), where("examOwnerId", "==", uid), where("examId", "==", examId))),
-    getDocs(query(collection(db, "attemptResults"), where("examOwnerId", "==", uid), where("examId", "==", examId))),
-  ]);
+type Snap = QuerySnapshot<DocumentData>;
+
+function buildRows(attempts: Snap, results: Snap): { rows: ResultRow[]; expiredCount: number } {
   const resultById = new Map(results.docs.map((d) => [d.id, d.data()]));
   const now = Date.now();
   let expiredCount = 0;
@@ -58,4 +52,26 @@ export async function loadExamResults(
   });
   rows.sort((x, y) => x.classroomId.localeCompare(y.classroomId, "th") || x.studentName.localeCompare(y.studentName, "th"));
   return { rows, expiredCount };
+}
+
+export async function loadExamResults(
+  examId: string,
+  uid: string,
+): Promise<{ rows: ResultRow[]; expiredCount: number }> {
+  const db = getClientFirestore();
+  const [attempts, results] = await Promise.all([
+    getDocs(query(collection(db, "attempts"), where("examOwnerId", "==", uid), where("examId", "==", examId))),
+    getDocs(query(collection(db, "attemptResults"), where("examOwnerId", "==", uid), where("examId", "==", examId))),
+  ]);
+  return buildRows(attempts, results);
+}
+
+/** Admin variant: all attempts of the exam regardless of owner (Rules allow admins to read both collections). */
+export async function loadExamResultsAsAdmin(examId: string): Promise<{ rows: ResultRow[]; expiredCount: number }> {
+  const db = getClientFirestore();
+  const [attempts, results] = await Promise.all([
+    getDocs(query(collection(db, "attempts"), where("examId", "==", examId))),
+    getDocs(query(collection(db, "attemptResults"), where("examId", "==", examId))),
+  ]);
+  return buildRows(attempts, results);
 }

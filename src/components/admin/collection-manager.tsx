@@ -1,31 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { describeAdminError } from "@/lib/admin-client";
+import { ApiError, apiDelete, apiPost } from "@/lib/api-client";
 import { getClientFirestore } from "@/lib/firebase-client";
 
 type Item = { id: string; name: string };
 const CODE_RE = /^[a-z0-9][a-z0-9-]{0,40}$/;
 
-/** Simple CRUD for { name } documents (classrooms, subjects). Admin-only via Firestore Rules. */
+const USAGE_LABEL: Record<string, string> = {
+  users: "ผู้ใช้",
+  exams: "ชุดสอบ",
+  questions: "ข้อสอบ",
+};
+
+/**
+ * CRUD for { name } documents (classrooms, subjects). Create/rename use Firestore directly (Rules: admin only);
+ * delete goes through the API so usage is checked first. Classrooms can also move all their students at once.
+ */
 export function CollectionManager({
   collectionName,
   title,
   codeHint,
   deleteWarning,
+  moveStudents = false,
 }: {
   collectionName: "classrooms" | "subjects";
   title: string;
   codeHint: string;
   deleteWarning: string;
+  moveStudents?: boolean;
 }) {
   const [items, setItems] = useState<Item[] | null>(null);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [moveFrom, setMoveFrom] = useState<string | null>(null);
+  const [moveTo, setMoveTo] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,12 +93,50 @@ export function CollectionManager({
   }
 
   async function onDelete(item: Item) {
+    setError(null);
+    setNotice(null);
     if (!window.confirm(`ลบ "${item.name}" ใช่หรือไม่?\n${deleteWarning}`)) return;
+    const base = `/api/admin/catalog/${collectionName}/${encodeURIComponent(item.id)}`;
     try {
-      await deleteDoc(doc(getClientFirestore(), collectionName, item.id));
+      try {
+        await apiDelete(base);
+      } catch (err) {
+        // Still referenced: show how much, and only delete if the admin insists.
+        if (!(err instanceof ApiError) || err.code !== "IN_USE") throw err;
+        const usage = (err.data?.usage ?? {}) as Record<string, number>;
+        const detail = Object.entries(usage)
+          .filter(([, n]) => n > 0)
+          .map(([k, n]) => `${USAGE_LABEL[k] ?? k} ${n} รายการ`)
+          .join(", ");
+        if (!window.confirm(`"${item.name}" ยังถูกใช้งานอยู่: ${detail}\nลบต่อไปหรือไม่?`)) return;
+        await apiDelete(`${base}?force=1`);
+      }
       setItems((list) => (list ?? []).filter((i) => i.id !== item.id));
-    } catch {
-      setError("ลบไม่สำเร็จ");
+    } catch (err) {
+      setError(describeAdminError(err));
+    }
+  }
+
+  async function onMoveStudents(item: Item) {
+    const target = items?.find((i) => i.id === moveTo);
+    if (!target) return setError("กรุณาเลือกห้องปลายทาง");
+    if (!window.confirm(`ย้ายนักเรียนทั้งหมดจาก "${item.name}" ไป "${target.name}"?\n(นักเรียนต้องเข้าสู่ระบบใหม่)`)) return;
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const r = await apiPost<{ moved: number; failed: number; remaining: number }>(
+        `/api/admin/classrooms/${encodeURIComponent(item.id)}/move-students`,
+        { toClassroomId: target.id },
+      );
+      const rest = r.remaining > 0 ? ` (เหลืออีก ${r.remaining} คน กดย้ายอีกครั้ง)` : "";
+      const bad = r.failed > 0 ? ` ไม่สำเร็จ ${r.failed} คน` : "";
+      setNotice(`ย้ายนักเรียน ${r.moved} คนไป ${target.name} แล้ว${bad}${rest}`);
+      if (r.remaining === 0 && r.failed === 0) setMoveFrom(null);
+    } catch (err) {
+      setError(describeAdminError(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -106,21 +161,55 @@ export function CollectionManager({
       </Card>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {notice && <p className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-sm">{notice}</p>}
       {items === null && !error && <p className="text-sm text-muted-foreground">กำลังโหลด…</p>}
       {items && items.length === 0 && <p className="text-sm text-muted-foreground">ยังไม่มีข้อมูล</p>}
 
       <div className="space-y-2">
         {items?.map((i) => (
           <Card key={i.id}>
-            <CardContent className="flex items-center justify-between gap-2 pt-4">
-              <div>
-                <p className="font-medium">{i.name}</p>
-                <p className="text-xs text-muted-foreground">รหัส: {i.id}</p>
+            <CardContent className="space-y-3 pt-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">{i.name}</p>
+                  <p className="text-xs text-muted-foreground">รหัส: {i.id}</p>
+                </div>
+                <div className="flex flex-wrap justify-end gap-1">
+                  {moveStudents && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setMoveFrom((cur) => (cur === i.id ? null : i.id));
+                        setMoveTo("");
+                      }}
+                    >
+                      ย้ายนักเรียน
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => onRename(i)}>เปลี่ยนชื่อ</Button>
+                  <Button variant="destructive" size="sm" onClick={() => onDelete(i)}>ลบ</Button>
+                </div>
               </div>
-              <div className="flex gap-1">
-                <Button variant="outline" size="sm" onClick={() => onRename(i)}>เปลี่ยนชื่อ</Button>
-                <Button variant="destructive" size="sm" onClick={() => onDelete(i)}>ลบ</Button>
-              </div>
+              {moveStudents && moveFrom === i.id && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+                  <span className="text-xs">ย้ายนักเรียนทั้งห้องไป</span>
+                  <select
+                    aria-label="ห้องปลายทาง"
+                    className="h-9 rounded-lg border border-input bg-background px-3 py-1 text-xs"
+                    value={moveTo}
+                    onChange={(e) => setMoveTo(e.target.value)}
+                  >
+                    <option value="">— เลือกห้อง —</option>
+                    {items.filter((o) => o.id !== i.id).map((o) => (
+                      <option key={o.id} value={o.id}>{o.name}</option>
+                    ))}
+                  </select>
+                  <Button size="sm" disabled={busy || !moveTo} onClick={() => void onMoveStudents(i)}>
+                    {busy ? "กำลังย้าย…" : "ยืนยันการย้าย"}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}

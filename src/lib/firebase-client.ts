@@ -15,12 +15,20 @@ const globalForFirebase = globalThis as typeof globalThis & {
 };
 
 function createBundle(): ClientBundle {
+  // Real Firebase: every value must come from .env.local (no silent "demo-*" fallbacks).
+  // Emulator mode keeps demo defaults so the old workflow still works.
+  const env = (value: string | undefined, name: string, demo: string): string => {
+    if (value) return value;
+    if (USE_EMULATOR) return demo;
+    throw new Error(`Missing ${name}. Set it in .env.local (see .env.example).`);
+  };
+
   const config = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "demo-api-key",
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "demo-exam-system.firebaseapp.com",
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "demo-exam-system",
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "123456789012",
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:123456789012:web:demo",
+    apiKey: env(process.env.NEXT_PUBLIC_FIREBASE_API_KEY, "NEXT_PUBLIC_FIREBASE_API_KEY", "demo-api-key"),
+    authDomain: env(process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN", "demo-exam-system.firebaseapp.com"),
+    projectId: env(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, "NEXT_PUBLIC_FIREBASE_PROJECT_ID", "demo-exam-system"),
+    messagingSenderId: env(process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID, "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID", "123456789012"),
+    appId: env(process.env.NEXT_PUBLIC_FIREBASE_APP_ID, "NEXT_PUBLIC_FIREBASE_APP_ID", "1:123456789012:web:demo"),
   };
 
   const app = getApps().length > 0 ? getApp() : initializeApp(config);
