@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers (role/classroomId come from Custom Claims, no get() reads) ----------
+    function signedIn()  { return request.auth != null; }
+    function role()      { return request.auth.token.get('role', ''); }
+    function isAdmin()   { return signedIn() && role() == 'ADMIN'; }
+    function isTeacher() { return signedIn() && role() == 'TEACHER'; }
+    function isStudent() { return signedIn() && role() == 'STUDENT'; }
+    function isStaff()   { return isAdmin() || isTeacher(); }
+    function uid()       { return request.auth.uid; }
+
+    // ---------- users: written only via Admin SDK ----------
+    match /users/{userId} {
+      allow read: if signedIn() && (uid() == userId || isStaff());
+      allow write: if false;
+    }
+
+    // ---------- classrooms / subjects ----------
+    match /classrooms/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /subjects/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------- question bank (contains answers): owner teacher only ----------
+    match /questions/{id} {
+      allow read: if isTeacher() && resource.data.ownerId == uid();
+      allow create: if isTeacher() && request.resource.data.ownerId == uid();
+      allow update: if isTeacher()
+        && resource.data.ownerId == uid()
+        && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if isTeacher() && resource.data.ownerId == uid();
+    }
+
+    // ---------- exams ----------
+    // Teachers may edit only their own DRAFT exams from the client.
+    // Publishing/closing is done by the API (Admin SDK) so paper/key stay consistent.
+    match /exams/{id} {
+      allow read: if (isTeacher() && resource.data.ownerId == uid())
+        || (isStudent()
+            && resource.data.status == 'PUBLISHED'
+            && request.auth.token.get('classroomId', '') in resource.data.classroomIds);
+      allow create: if isTeacher()
+        && request.resource.data.ownerId == uid()
+        && request.resource.data.status == 'DRAFT';
+      allow update: if isTeacher()
+        && resource.data.ownerId == uid()
+        && resource.data.status == 'DRAFT'
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.status == 'DRAFT';
+      allow delete: if isTeacher()
+        && resource.data.ownerId == uid()
+        && resource.data.status == 'DRAFT';
+    }
+
+    // ---------- exam papers (no answers) ----------
+    // Student can read only after the start API created their attempt,
+    // whose id is deterministic: {examId}_{uid}. (exists() costs 1 read.)
+    match /examPapers/{examId} {
+      allow read: if isStaff()
+        || (isStudent() && exists(/databases/$(database)/documents/attempts/$(examId + '_' + uid())));
+      allow write: if false;
+    }
+
+    // ---------- answer keys: Admin SDK only ----------
+    match /examKeys/{id} {
+      allow read, write: if false;
+    }
+
+    // ---------- attempts ----------
+    match /attempts/{attemptId} {
+      allow read: if signedIn() && (
+        resource.data.studentId == uid()
+        || isAdmin()
+        || (isTeacher() && resource.data.examOwnerId == uid())
+      );
+      allow create: if false;   // /api/exams/[id]/start (Admin SDK) only
+      allow delete: if false;
+      // Student may only touch `answers`, before the deadline, before submit.
+      allow update: if isStudent()
+        && resource.data.studentId == uid()
+        && request.time < resource.data.deadlineAt
+        && resource.data.get('submittedAt', null) == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answers'])
+        && request.resource.data.answers is map
+        && request.resource.data.answers.size() <= 300;
+    }
+
+    // ---------- attempt results (scores): written by Admin SDK only ----------
+    // Students see their own score only when the teacher enabled showResult AND grading is complete.
+    match /attemptResults/{attemptId} {
+      allow read: if signedIn() && (
+        isAdmin()
+        || (isTeacher() && resource.data.examOwnerId == uid())
+        || (isStudent()
+            && resource.data.studentId == uid()
+            && resource.data.showResult == true
+            && resource.data.status == 'GRADED')
+      );
+      allow write: if false;
+    }
+  }
+}
