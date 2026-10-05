@@ -3,6 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  BookOpen,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Play,
+  ArrowRight,
+} from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { apiPost, describeApiError } from "@/lib/api-client";
@@ -20,6 +29,7 @@ const fmt = (ms: number | null) =>
 export default function StudentHome() {
   const { user } = useAuth();
   const router = useRouter();
+  const [classroom, setClassroom] = useState<string | null>(null);
   const [exams, setExams] = useState<ExamDoc[] | null>(null);
   const [attempts, setAttempts] = useState<Record<string, AttemptDoc>>({});
   const [scores, setScores] = useState<Record<string, ScoreView>>({});
@@ -35,6 +45,7 @@ export default function StudentHome() {
       .then((tok) => {
         const classroomId = tok.claims.classroomId;
         if (typeof classroomId !== "string") throw new Error("NO_CLASSROOM");
+        setClassroom(classroomId);
         return Promise.all([
           getDocs(
             query(
@@ -82,45 +93,143 @@ export default function StudentHome() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <h2 className="text-xl font-semibold">รายการสอบ</h2>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {exams === null && !error && <p className="text-sm text-muted-foreground">กำลังโหลด…</p>}
-      {exams && exams.length === 0 && <p className="text-sm text-muted-foreground">ยังไม่มีข้อสอบสำหรับห้องของคุณ</p>}
+    <div className="mx-auto max-w-3xl space-y-6">
+      {/* Student Banner */}
+      <div className="rounded-2xl border border-primary/20 bg-linear-to-r from-primary/10 via-primary/5 to-transparent p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-primary">ห้องสอบนักเรียน</span>
+              {classroom && (
+                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  ห้อง {classroom}
+                </span>
+              )}
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight">แบบทดสอบที่ได้รับมอบหมาย</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              กรุณาเข้าสอบตามช่วงเวลาที่กำหนด และตรวจทานคำตอบก่อนส่ง
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <div className="space-y-2">
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {exams === null && !error && (
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-28 rounded-xl border border-border/70 bg-card p-4 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {exams && exams.length === 0 && (
+        <Card className="text-center py-12">
+          <CardContent className="space-y-3">
+            <BookOpen className="mx-auto size-10 text-muted-foreground/60" />
+            <p className="font-semibold text-base">ยังไม่มีข้อสอบสำหรับห้องของคุณในขณะนี้</p>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              เมื่อคุณครูเปิดการสอบสำหรับห้องของคุณ รายการแบบทดสอบจะปรากฏที่นี่โดยอัตโนมัติ
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Exam List */}
+      <div className="space-y-3">
         {exams?.map((exam) => {
           const attempt = attempts[exam.id];
           const state = examCardState(exam, attempt, now);
+          const score = scores[exam.id];
+
           return (
-            <Card key={exam.id}>
-              <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-4">
-                <div className="min-w-0 space-y-1">
-                  <p className="font-medium">{exam.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {fmt(exam.openAtMs)} – {fmt(exam.closeAtMs)} · {exam.durationMin} นาที · {exam.questionCount ?? exam.questionIds.length} ข้อ
-                  </p>
+            <Card
+              key={exam.id}
+              className={`transition-all hover:border-primary/40 ${
+                state === "OPEN" || state === "RESUME" ? "ring-1 ring-primary/20 shadow-xs" : ""
+              }`}
+            >
+              <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5">
+                <div className="min-w-0 space-y-2">
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-base text-foreground leading-snug">{exam.title}</h3>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar className="size-3.5" />
+                        <span>{fmt(exam.openAtMs)} – {fmt(exam.closeAtMs)}</span>
+                      </span>
+                      <span>·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="size-3.5" />
+                        <span>{exam.durationMin} นาที</span>
+                      </span>
+                      <span>·</span>
+                      <span>{exam.questionCount ?? exam.questionIds.length} ข้อ</span>
+                    </div>
+                  </div>
+
+                  {/* Status Indicator */}
                   {state === "SUBMITTED" && (
-                    <p className="text-xs">
-                      ส่งแล้ว
-                      {scores[exam.id]
-                        ? ` · ได้ ${scores[exam.id].score}/${scores[exam.id].maxScore} คะแนน`
-                        : " · รอประกาศผล"}
-                    </p>
+                    <div className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                      <CheckCircle2 className="size-3.5" />
+                      <span>
+                        ส่งข้อสอบแล้ว
+                        {score
+                          ? ` · ได้คะแนน ${score.score}/${score.maxScore}`
+                          : " · กำลังรอครูประกาศผล"}
+                      </span>
+                    </div>
                   )}
-                  {state === "MISSED" && <p className="text-xs text-destructive">หมดเวลารับสอบแล้ว</p>}
-                  {state === "NOT_OPEN" && <p className="text-xs text-muted-foreground">ยังไม่ถึงเวลาเปิดสอบ</p>}
+                  {state === "MISSED" && (
+                    <div className="inline-flex items-center gap-1.5 text-xs text-destructive font-medium">
+                      <AlertCircle className="size-3.5" />
+                      <span>หมดเวลารับสอบแล้ว</span>
+                    </div>
+                  )}
+                  {state === "NOT_OPEN" && (
+                    <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                      <Clock className="size-3.5" />
+                      <span>ยังไม่ถึงเวลาเปิดสอบ</span>
+                    </div>
+                  )}
                 </div>
-                {(state === "OPEN" || state === "RESUME") && (
-                  <Button disabled={busyId === exam.id} onClick={() => onStart(exam)}>
-                    {busyId === exam.id ? "กำลังเตรียมข้อสอบ…" : state === "RESUME" ? "ทำต่อ" : "เริ่มสอบ"}
-                  </Button>
-                )}
-                {state === "EXPIRED" && attempt && (
-                  <Link href={`/student/exam/${attempt.id}`} className={buttonVariants({ variant: "outline" })}>
-                    หมดเวลา · ส่งงาน
-                  </Link>
-                )}
+
+                {/* Action Buttons */}
+                <div className="shrink-0 flex items-center gap-2">
+                  {(state === "OPEN" || state === "RESUME") && (
+                    <Button
+                      disabled={busyId === exam.id}
+                      onClick={() => onStart(exam)}
+                      className="gap-2 w-full sm:w-auto shadow-xs"
+                    >
+                      {state === "RESUME" ? (
+                        <>
+                          <ArrowRight className="size-4" />
+                          <span>ทำต่อ</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="size-4 fill-current" />
+                          <span>{busyId === exam.id ? "กำลังเตรียม…" : "เริ่มทำข้อสอบ"}</span>
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {state === "EXPIRED" && attempt && (
+                    <Link
+                      href={`/student/exam/${attempt.id}`}
+                      className={buttonVariants({ variant: "outline", className: "gap-2 w-full sm:w-auto" })}
+                    >
+                      <span>ส่งงานหลังหมดเวลา</span>
+                    </Link>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );

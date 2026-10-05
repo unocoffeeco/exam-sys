@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Clock, AlertCircle, ChevronLeft, ChevronRight, Send, CheckCircle2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -219,18 +220,34 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
 
   if (result) {
     return (
-      <div className="mx-auto max-w-md space-y-4 text-center">
-        <Card>
-          <CardContent className="space-y-2 pt-6">
-            <h2 className="text-xl font-semibold">ส่งข้อสอบเรียบร้อยแล้ว</h2>
+      <div className="mx-auto max-w-md space-y-5 text-center py-6">
+        <Card className="border-border/80 shadow-md">
+          <CardContent className="space-y-4 pt-8 pb-6 px-6">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="size-8" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold tracking-tight">ส่งข้อสอบเรียบร้อยแล้ว</h2>
+              <p className="text-xs text-muted-foreground">ระบบได้บันทึกคำตอบและปิดการสอบของคุณแล้ว</p>
+            </div>
+
             {result.showResult && result.score != null ? (
-              <p>คะแนนของคุณ <span className="text-2xl font-bold">{result.score}</span> / {result.maxScore}</p>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-1">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">คะแนนที่คุณทำได้</span>
+                <p className="text-3xl font-extrabold text-primary tabular-nums">
+                  {result.score} <span className="text-base font-normal text-muted-foreground">/ {result.maxScore}</span>
+                </p>
+              </div>
             ) : (
-              <p className="text-sm text-muted-foreground">รอครูประกาศผลคะแนน</p>
+              <div className="rounded-xl border border-border/70 bg-muted/40 p-3.5 text-xs text-muted-foreground">
+                ข้อสอบชุดนี้ยังไม่ประกาศคะแนนทันที กรุณารอคุณครูตรวจข้อสอบและแจ้งผล
+              </div>
             )}
           </CardContent>
         </Card>
-        <Link href="/student" className={buttonVariants()}>กลับหน้ารายการสอบ</Link>
+        <Link href="/student" className={buttonVariants({ size: "lg", className: "w-full gap-2 shadow-xs" })}>
+          กลับสู่หน้ารายการสอบ
+        </Link>
       </div>
     );
   }
@@ -255,109 +272,214 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <div className="sticky top-0 z-10 flex items-center justify-between rounded-lg border bg-background/95 px-3 py-2 backdrop-blur">
-        <span className="text-sm text-muted-foreground">
-          ข้อ {index + 1}/{questions.length} · ตอบแล้ว {answeredCount}
-        </span>
-        <span className={`font-mono text-lg font-semibold ${low ? "text-destructive" : ""}`} aria-live="off">
-          {remainingMs == null ? "--:--" : formatRemaining(remainingMs)}
-        </span>
+      {/* Sticky Progress & Timer Bar */}
+      <div className="sticky top-0 z-20 overflow-hidden rounded-xl border border-border/80 bg-background/95 shadow-sm backdrop-blur-md">
+        {/* Progress Fill Bar */}
+        <div className="h-1.5 w-full bg-muted">
+          <div
+            className="h-full bg-primary transition-all duration-300"
+            style={{ width: `${(answeredCount / Math.max(1, questions.length)) * 100}%` }}
+          />
+        </div>
+
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <span className="font-semibold text-foreground">
+              ข้อ {index + 1} จาก {questions.length}
+            </span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">
+              ตอบแล้ว {answeredCount}/{questions.length} ข้อ
+            </span>
+          </div>
+
+          <div
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-mono text-sm font-bold tabular-nums transition-colors ${
+              low
+                ? "bg-destructive/10 text-destructive animate-pulse"
+                : "bg-muted/70 text-foreground"
+            }`}
+          >
+            <Clock className="size-3.5" />
+            <span aria-live="off">{remainingMs == null ? "--:--" : formatRemaining(remainingMs)}</span>
+          </div>
+        </div>
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        ระบบจะบันทึกเมื่อคุณสลับแท็บหรือออกจากหน้าสอบ และครูจะเห็นข้อมูลนี้
-      </p>
       {awayCount > 0 && (
-        <p
+        <div
           role="status"
-          className="rounded-lg border border-amber-500/50 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+          className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-900 dark:text-amber-100"
         >
-          บันทึกแล้วว่าคุณออกจากหน้าสอบ {awayCount} ครั้ง
-        </p>
+          <AlertCircle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>ระบบบันทึกแล้วว่าคุณสลับแท็บหรือออกจากหน้าสอบ {awayCount} ครั้ง (ข้อมูลนี้จะส่งให้คุณครู)</span>
+        </div>
       )}
 
-      {expired && <p className="text-sm text-destructive">หมดเวลาแล้ว กำลังส่งข้อสอบอัตโนมัติ…</p>}
+      {expired && (
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>หมดเวลาการสอบแล้ว ระบบกำลังส่งข้อสอบโดยอัตโนมัติ…</span>
+        </div>
+      )}
 
-      <Card>
-        <CardContent className="space-y-4 pt-4">
-          <p className="whitespace-pre-line text-base">
-            <span className="mr-1 font-semibold">{index + 1}.</span>
-            {q.body} <span className="text-xs text-muted-foreground">({q.points} คะแนน)</span>
-          </p>
+      {/* Main Question Card */}
+      <Card className="shadow-xs border-border/80">
+        <CardContent className="space-y-5 p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <span className="inline-block rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                คำถามข้อที่ {index + 1}
+              </span>
+              <p className="whitespace-pre-line text-base sm:text-lg font-medium text-foreground leading-relaxed pt-1">
+                {q.body}
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full border border-border/70 bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              {q.points} คะแนน
+            </span>
+          </div>
 
+          {/* Multiple choice radio list */}
           {orderedChoices.length > 0 && (
-            <div className="space-y-2">
-              {orderedChoices.map((c) => (
-                <label
-                  key={c.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${
-                    answers[q.id] === c.id ? "border-primary bg-muted" : ""
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={`q-${q.id}`}
-                    checked={answers[q.id] === c.id}
-                    onChange={() => setAnswer(q.id, c.id)}
-                    disabled={expired}
-                    className="size-4 shrink-0"
-                  />
-                  {c.text}
-                </label>
-              ))}
+            <div className="space-y-2.5 pt-2">
+              {orderedChoices.map((c, i) => {
+                const isSelected = answers[q.id] === c.id;
+                return (
+                  <label
+                    key={c.id}
+                    className={`flex cursor-pointer items-center gap-3.5 rounded-xl border p-3.5 text-sm transition-all ${
+                      isSelected
+                        ? "border-primary bg-primary/5 text-foreground shadow-xs font-medium"
+                        : "border-border/70 hover:border-border hover:bg-muted/30 text-foreground/90"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={`q-${q.id}`}
+                      checked={isSelected}
+                      onChange={() => setAnswer(q.id, c.id)}
+                      disabled={expired}
+                      className="size-4 shrink-0 accent-primary"
+                    />
+                    <span className="text-xs text-muted-foreground mr-0.5">{String.fromCharCode(65 + i)}.</span>
+                    <span className="leading-snug">{c.text}</span>
+                  </label>
+                );
+              })}
             </div>
           )}
+
+          {/* Short answer input */}
           {q.type === "SHORT" && (
-            <Input
-              value={answers[q.id] ?? ""}
-              onChange={(e) => setAnswer(q.id, e.target.value)}
-              placeholder="พิมพ์คำตอบ"
-              disabled={expired}
-              maxLength={500}
-            />
+            <div className="space-y-1.5 pt-2">
+              <label className="text-xs text-muted-foreground">คำตอบแบบสั้น:</label>
+              <Input
+                value={answers[q.id] ?? ""}
+                onChange={(e) => setAnswer(q.id, e.target.value)}
+                placeholder="พิมพ์คำตอบของคุณที่นี่…"
+                disabled={expired}
+                maxLength={500}
+                className="h-10 text-sm"
+              />
+            </div>
           )}
+
+          {/* Essay answer textarea */}
           {q.type === "ESSAY" && (
-            <textarea
-              rows={8}
-              className={textareaClass}
-              value={answers[q.id] ?? ""}
-              onChange={(e) => setAnswer(q.id, e.target.value)}
-              placeholder="พิมพ์คำตอบ"
-              disabled={expired}
-              maxLength={5000}
-            />
+            <div className="space-y-1.5 pt-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>คำตอบเชิงบรรยาย (อัตนัย):</span>
+                <span>{(answers[q.id] ?? "").length} / 5000 ตัวอักษร</span>
+              </div>
+              <textarea
+                rows={8}
+                className={textareaClass}
+                value={answers[q.id] ?? ""}
+                onChange={(e) => setAnswer(q.id, e.target.value)}
+                placeholder="พิมพ์คำอธิบายหรือเนื้อหาคำตอบของคุณอย่างละเอียดที่นี่…"
+                disabled={expired}
+                maxLength={5000}
+              />
+              <p className="text-3xs text-muted-foreground">ระบบบันทึกคำตอบลงเครื่องและเซิร์ฟเวอร์โดยอัตโนมัติ</p>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      <div className="flex justify-between gap-2">
-        <Button variant="outline" disabled={index === 0} onClick={() => setIndex((i) => i - 1)}>ก่อนหน้า</Button>
-        <Button variant="outline" disabled={index === questions.length - 1} onClick={() => setIndex((i) => i + 1)}>ถัดไป</Button>
+      {/* Prev / Next Navigation Controls */}
+      <div className="flex items-center justify-between gap-3">
+        <Button
+          variant="outline"
+          disabled={index === 0}
+          onClick={() => setIndex((i) => i - 1)}
+          className="gap-1.5 shadow-2xs"
+        >
+          <ChevronLeft className="size-4" />
+          <span>ข้อก่อนหน้า</span>
+        </Button>
+
+        <Button
+          variant="outline"
+          disabled={index === questions.length - 1}
+          onClick={() => setIndex((i) => i + 1)}
+          className="gap-1.5 shadow-2xs"
+        >
+          <span>ข้อถัดไป</span>
+          <ChevronRight className="size-4" />
+        </Button>
       </div>
 
-      <Card>
-        <CardContent className="space-y-3 pt-4">
-          <div className="flex flex-wrap gap-2">
+      {/* Question Jump Grid & Final Submit */}
+      <Card className="shadow-xs border-border/80">
+        <CardContent className="space-y-4 p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              สารบัญข้อสอบ
+            </span>
+            <span className="text-xs text-muted-foreground">
+              คลิกเลขข้อเพื่อกระโดดไปยังข้อนั้นทันที
+            </span>
+          </div>
+
+          <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
             {questions.map((x, i) => {
               const done = (answers[x.id] ?? "").trim() !== "";
+              const current = i === index;
               return (
                 <button
                   key={x.id}
                   type="button"
                   onClick={() => setIndex(i)}
                   aria-label={`ไปข้อ ${i + 1}${done ? " (ตอบแล้ว)" : ""}`}
-                  className={`size-9 rounded-md border text-sm ${
-                    i === index ? "ring-2 ring-ring" : ""
-                  } ${done ? "bg-primary text-primary-foreground" : "bg-background"}`}
+                  className={`flex h-9 items-center justify-center rounded-lg text-xs font-semibold transition-all ${
+                    current
+                      ? "ring-2 ring-primary ring-offset-2 bg-primary text-primary-foreground shadow-xs"
+                      : done
+                      ? "border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
+                      : "border border-border/80 bg-background text-muted-foreground hover:bg-muted"
+                  }`}
                 >
                   {i + 1}
                 </button>
               );
             })}
           </div>
-          {submitError && <p className="text-sm text-destructive">{submitError}</p>}
-          <Button className="w-full" disabled={submitting} onClick={onSubmitClick}>
-            {submitting ? "กำลังส่ง…" : "ส่งข้อสอบ"}
+
+          {submitError && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          <Button
+            className="w-full gap-2 shadow-sm font-semibold h-10"
+            disabled={submitting}
+            onClick={onSubmitClick}
+          >
+            <Send className="size-4" />
+            <span>{submitting ? "กำลังส่งคำตอบ…" : "ส่งข้อสอบ"}</span>
           </Button>
         </CardContent>
       </Card>

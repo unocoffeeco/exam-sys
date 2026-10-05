@@ -1,7 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
+import {
+  Search,
+  ArrowLeft,
+  KeyRound,
+  Ban,
+  AlertCircle,
+  User as UserIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,8 +18,14 @@ import { listUsers, type UserRecord } from "@/lib/admin-users";
 import { apiPatch, describeApiError } from "@/lib/api-client";
 import { getClientFirestore } from "@/lib/firebase-client";
 
-const ROLE_LABEL = { ADMIN: "ผู้ดูแลระบบ", TEACHER: "ครู", STUDENT: "นักเรียน" } as const;
-const selectClass = "rounded-lg border border-input bg-background px-2 py-1.5 text-sm";
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: "ผู้ดูแลระบบ",
+  TEACHER: "ครูผู้สอน",
+  STUDENT: "นักเรียน",
+};
+
+const selectClass =
+  "h-9 rounded-lg border border-input bg-background px-3 py-1 text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRecord[] | null>(null);
@@ -81,11 +96,29 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <h2 className="text-xl font-semibold">ผู้ใช้</h2>
+    <div className="mx-auto max-w-4xl space-y-5">
+      <div className="space-y-1">
+        <Link
+          href="/admin"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-3.5" />
+          <span>กลับหน้าควบคุมระบบ</span>
+        </Link>
+        <h2 className="text-xl font-bold tracking-tight">รายชื่อผู้ใช้งานทั้งหมด</h2>
+        <p className="text-xs text-muted-foreground">จัดการนักเรียน ครูผู้สอน และบทบาทสิทธิ์</p>
+      </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Input className="w-56" placeholder="ค้นหาชื่อหรืออีเมล" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+          <Input
+            className="pl-9 h-9 text-xs"
+            placeholder="ค้นหาตามชื่อ หรืออีเมล…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
         <select aria-label="กรองบทบาท" className={selectClass} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
           <option value="">ทุกบทบาท</option>
           <option value="STUDENT">นักเรียน</option>
@@ -93,32 +126,68 @@ export default function AdminUsersPage() {
           <option value="ADMIN">ผู้ดูแลระบบ</option>
         </select>
         <select aria-label="กรองห้อง" className={selectClass} value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)}>
-          <option value="">ทุกห้อง</option>
+          <option value="">ทุกห้องเรียน</option>
           {rooms.map((r) => (
             <option key={r.id} value={r.id}>{r.name}</option>
           ))}
         </select>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {notice && <p className="rounded-lg border bg-muted p-3 text-sm font-medium">{notice}</p>}
-      {users === null && !error && <p className="text-sm text-muted-foreground">กำลังโหลด…</p>}
-      {users && <p className="text-xs text-muted-foreground">{shown.length} จาก {users.length} บัญชี</p>}
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      {notice && (
+        <div className="rounded-xl border border-primary/20 bg-primary/10 p-3.5 text-xs font-medium text-foreground">
+          {notice}
+        </div>
+      )}
 
-      <div className="space-y-2">
+      {users === null && !error && (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 rounded-xl border border-border/70 bg-card p-4 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {users && (
+        <p className="text-xs text-muted-foreground">แสดง {shown.length} จาก {users.length} บัญชีผู้ใช้</p>
+      )}
+
+      <div className="space-y-2.5">
         {shown.map((u) => (
-          <Card key={u.uid} className={u.disabled ? "opacity-60" : ""}>
-            <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-4">
-              <div className="min-w-0">
-                <p className="font-medium">
-                  {u.name || "(ไม่มีชื่อ)"}{" "}
-                  <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs font-normal">{ROLE_LABEL[u.role] ?? u.role}</span>
-                  {u.disabled && <span className="ml-1 text-xs text-destructive">ระงับ</span>}
-                </p>
-                <p className="text-xs text-muted-foreground">{u.email}</p>
+          <Card key={u.uid} className={`transition-all hover:border-primary/40 ${u.disabled ? "opacity-60 bg-muted/30" : ""}`}>
+            <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="size-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <UserIcon className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-semibold text-sm truncate">{u.name || "(ไม่มีชื่อ)"}</p>
+                    <span className="rounded-md bg-secondary px-2 py-0.5 text-2xs font-medium text-secondary-foreground">
+                      {ROLE_LABEL[u.role] ?? u.role}
+                    </span>
+                    {u.classroomId && (
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-2xs font-medium text-primary">
+                        ห้อง {roomName(u.classroomId)}
+                      </span>
+                    )}
+                    {u.disabled && (
+                      <span className="rounded-md bg-destructive/10 px-2 py-0.5 text-2xs font-medium text-destructive">
+                        ระงับบัญชี
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                </div>
               </div>
+
               {u.role !== "ADMIN" && (
-                <div className="flex flex-wrap items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1.5 self-end sm:self-auto">
                   {u.role === "STUDENT" && (
                     <select
                       aria-label={`ห้องของ ${u.name}`}
@@ -133,9 +202,25 @@ export default function AdminUsersPage() {
                       ))}
                     </select>
                   )}
-                  <Button variant="outline" size="sm" disabled={busyUid === u.uid} onClick={() => onReset(u)}>รีเซ็ตรหัสผ่าน</Button>
-                  <Button variant={u.disabled ? "outline" : "destructive"} size="sm" disabled={busyUid === u.uid} onClick={() => onToggle(u)}>
-                    {u.disabled ? "เปิดใช้งาน" : "ระงับ"}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    disabled={busyUid === u.uid}
+                    onClick={() => onReset(u)}
+                  >
+                    <KeyRound className="size-3" />
+                    <span>รีเซ็ตรหัส</span>
+                  </Button>
+                  <Button
+                    variant={u.disabled ? "outline" : "destructive"}
+                    size="sm"
+                    className="gap-1 text-xs"
+                    disabled={busyUid === u.uid}
+                    onClick={() => onToggle(u)}
+                  >
+                    <Ban className="size-3" />
+                    <span>{u.disabled ? "เปิดใช้งาน" : "ระงับ"}</span>
                   </Button>
                 </div>
               )}

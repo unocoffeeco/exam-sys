@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { FirebaseError } from "firebase/app"; // Import FirebaseError เข้ามาใช้งาน
+import { FirebaseError } from "firebase/app";
+import { GraduationCap, Mail, Lock, LogIn, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { getClientAuth } from "@/lib/firebase-client";
 import { isRole, ROLE_HOME } from "@/lib/roles";
 
-// เพิ่มการตั้งค่า Error Messages ให้ครอบคลุมเคสต่างๆ เพิ่มขึ้น
 const ERROR_MESSAGES: Record<string, string> = {
   "auth/invalid-credential": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
   "auth/invalid-email": "รูปแบบอีเมลไม่ถูกต้อง",
@@ -36,7 +36,6 @@ export function LoginForm() {
     setSubmitting(true);
     try {
       const cred = await signInWithEmailAndPassword(getClientAuth(), email.trim(), password);
-      // force refresh: custom claims may not be in the cached token yet
       const token = await cred.user.getIdTokenResult(true);
       const role = token.claims.role;
       if (!isRole(role)) {
@@ -45,22 +44,14 @@ export function LoginForm() {
       }
       router.replace(ROLE_HOME[role]);
     } catch (err: unknown) {
-      // 1. ดักจับถ้าเป็น FirebaseError โดยเฉพาะ
       if (err instanceof FirebaseError) {
-        // พิมพ์ Error Code และ Message ละเอียดใน Console เพื่อช่วย Debug
         console.error(`[Firebase Auth Error] Code: ${err.code} | Message: ${err.message}`);
-
-        // ดึงข้อความแสดงให้ผู้ใช้ตามตาราง หรือใช้ข้อความเริ่มต้นหากไม่พบ Code
         const userFriendlyMessage = ERROR_MESSAGES[err.code] ?? `เกิดข้อผิดพลาดในการเข้าสู่ระบบ (${err.code})`;
         setError(userFriendlyMessage);
-      } 
-      // 2. ดักจับกรณีเป็น Error ทั่วไปอื่นๆ
-      else if (err instanceof Error) {
+      } else if (err instanceof Error) {
         console.error("[General Error]:", err.message);
         setError(err.message);
-      } 
-      // 3. Fallback สำหรับข้อผิดพลาดที่ไม่รู้จัก
-      else {
+      } else {
         console.error("[Unknown Error]:", err);
         setError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ กรุณาลองใหม่อีกครั้ง");
       }
@@ -70,39 +61,67 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>เข้าสู่ระบบ</CardTitle>
-        <CardDescription>ระบบสอบออนไลน์</CardDescription>
+    <Card className="w-full max-w-md shadow-lg border-border/70">
+      <CardHeader className="text-center space-y-2 pb-4">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-1">
+          <GraduationCap className="size-6" />
+        </div>
+        <CardTitle className="text-2xl font-bold tracking-tight">เข้าสู่ระบบ</CardTitle>
+        <CardDescription className="text-sm">
+          ระบบสอบและประเมินผลออนไลน์ โรงเรียนมัธยมศึกษา
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">อีเมล</Label>
-            <Input
-              id="email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <Label htmlFor="email" className="text-xs font-medium">
+              อีเมลสถานศึกษา
+            </Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              <Input
+                id="email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                required
+                placeholder="name@school.ac.th"
+                className="pl-9 h-9"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="password">รหัสผ่าน</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <Label htmlFor="password" className="text-xs font-medium">
+              รหัสผ่าน
+            </Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                placeholder="••••••••"
+                className="pl-9 h-9"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
+
+          {error && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+              <AlertCircle className="size-4 shrink-0 mt-0.5" />
+              <p className="leading-tight">{error}</p>
+            </div>
+          )}
+
+          <Button type="submit" className="w-full gap-2 shadow-xs" disabled={submitting}>
+            <LogIn className="size-4" />
+            <span>{submitting ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</span>
           </Button>
         </form>
       </CardContent>

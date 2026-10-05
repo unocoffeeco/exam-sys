@@ -16,16 +16,12 @@ const globalForFirebase = globalThis as typeof globalThis & {
 
 function createBundle(): ClientBundle {
   const config = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "demo-api-key",
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "demo-exam-system.firebaseapp.com",
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "demo-exam-system",
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "123456789012",
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:123456789012:web:demo",
   };
-
-  if (!config.apiKey || !config.projectId || !config.appId) {
-    throw new Error("Missing NEXT_PUBLIC_FIREBASE_* env vars (see .env.example)");
-  }
 
   const app = getApps().length > 0 ? getApp() : initializeApp(config);
   const auth = getAuth(app);

@@ -2,6 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import {
+  FileSpreadsheet,
+  PlusCircle,
+  Clock,
+  Calendar,
+  Award,
+  AlertCircle,
+  Eye,
+  Trash2,
+  Edit,
+  Send,
+  Lock,
+} from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { apiPost, describeApiError } from "@/lib/api-client";
@@ -76,46 +89,143 @@ export default function ExamsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xl font-semibold">ชุดสอบ</h2>
-        <Link href="/teacher/exams/new" className={buttonVariants()}>+ สร้างชุดสอบ</Link>
+    <div className="mx-auto max-w-4xl space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">ชุดข้อสอบทั้งหมด</h2>
+          <p className="text-xs text-muted-foreground">ชุดข้อสอบที่คุณสร้างและเผยแพร่ให้นักเรียน</p>
+        </div>
+        <Link href="/teacher/exams/new" className={buttonVariants({ className: "gap-1.5 shadow-2xs" })}>
+          <PlusCircle className="size-4" />
+          <span>สร้างชุดสอบใหม่</span>
+        </Link>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {exams === null && !error && <p className="text-sm text-muted-foreground">กำลังโหลด…</p>}
-      {exams && exams.length === 0 && <p className="text-sm text-muted-foreground">ยังไม่มีชุดสอบ</p>}
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
-      <div className="space-y-2">
+      {exams === null && !error && (
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-24 rounded-xl border border-border/70 bg-card p-4 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {exams && exams.length === 0 && (
+        <Card className="text-center py-12">
+          <CardContent className="space-y-3">
+            <FileSpreadsheet className="mx-auto size-10 text-muted-foreground/60" />
+            <p className="font-semibold text-base">ยังไม่มีชุดข้อสอบ</p>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              สร้างชุดข้อสอบจากคลังข้อสอบของคุณเพื่อกำหนดช่วงเวลาและห้องเรียนที่เข้าสอบ
+            </p>
+            <Link href="/teacher/exams/new" className={buttonVariants({ size: "sm", className: "gap-1.5" })}>
+              <PlusCircle className="size-3.5" />
+              <span>สร้างชุดสอบแรก</span>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-3">
         {exams?.map((e) => (
-          <Card key={e.id}>
-            <CardContent className="flex flex-wrap items-start justify-between gap-3 pt-4">
-              <div className="min-w-0 space-y-1">
-                <p className="font-medium">
-                  {e.title}{" "}
-                  <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs font-normal">{EXAM_STATUS_LABEL[e.status]}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {fmt(e.openAtMs)} – {fmt(e.closeAtMs)} · {e.durationMin} นาที ·{" "}
-                  {e.questionCount ?? e.questionIds.length} ข้อ
-                  {e.totalPoints != null ? ` · ${e.totalPoints} คะแนน` : ""}
-                </p>
+          <Card key={e.id} className="transition-all hover:border-primary/40 hover:shadow-2xs">
+            <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5">
+              <div className="min-w-0 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-base text-foreground leading-snug">{e.title}</h3>
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                      e.status === "PUBLISHED"
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                        : e.status === "DRAFT"
+                        ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                        : "bg-muted text-muted-foreground border border-border/70"
+                    }`}
+                  >
+                    {EXAM_STATUS_LABEL[e.status]}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="size-3.5" />
+                    <span>{fmt(e.openAtMs)} – {fmt(e.closeAtMs)}</span>
+                  </span>
+                  <span>·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="size-3.5" />
+                    <span>{e.durationMin} นาที</span>
+                  </span>
+                  <span>·</span>
+                  <span>{e.questionCount ?? e.questionIds.length} ข้อ</span>
+                  {e.totalPoints != null && (
+                    <>
+                      <span>·</span>
+                      <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                        <Award className="size-3.5 text-primary" />
+                        <span>{e.totalPoints} คะแนน</span>
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="flex shrink-0 gap-1">
+
+              {/* Action Buttons */}
+              <div className="flex shrink-0 items-center gap-1.5">
                 {e.status === "DRAFT" && (
                   <>
-                    <Link href={`/teacher/exams/${e.id}/edit`} className={buttonVariants({ variant: "outline", size: "sm" })}>แก้ไข</Link>
-                    <Button size="sm" disabled={busyId === e.id} onClick={() => onPublish(e)}>
-                      {busyId === e.id ? "กำลังเผยแพร่…" : "เผยแพร่"}
+                    <Link
+                      href={`/teacher/exams/${e.id}/edit`}
+                      className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1" })}
+                    >
+                      <Edit className="size-3.5" />
+                      <span>แก้ไข</span>
+                    </Link>
+                    <Button
+                      size="sm"
+                      disabled={busyId === e.id}
+                      onClick={() => onPublish(e)}
+                      className="gap-1 shadow-2xs"
+                    >
+                      <Send className="size-3.5" />
+                      <span>{busyId === e.id ? "กำลังเผยแพร่…" : "เผยแพร่"}</span>
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => onDelete(e)}>ลบ</Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onDelete(e)}
+                      className="text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </>
                 )}
                 {e.status !== "DRAFT" && (
-                  <Link href={`/teacher/exams/${e.id}/results`} className={buttonVariants({ variant: "outline", size: "sm" })}>ผลสอบ</Link>
+                  <Link
+                    href={`/teacher/exams/${e.id}/results`}
+                    className={buttonVariants({ size: "sm", className: "gap-1.5 shadow-2xs" })}
+                  >
+                    <Eye className="size-3.5" />
+                    <span>ดูผลสอบ</span>
+                  </Link>
                 )}
                 {e.status === "PUBLISHED" && (
-                  <Button variant="outline" size="sm" disabled={busyId === e.id} onClick={() => onClose(e)}>ปิดการสอบ</Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busyId === e.id}
+                    onClick={() => onClose(e)}
+                    className="gap-1"
+                  >
+                    <Lock className="size-3.5" />
+                    <span>ปิดการสอบ</span>
+                  </Button>
                 )}
               </div>
             </CardContent>
