@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiPost, describeApiError } from "@/lib/api-client";
 import { toCsv } from "@/lib/report";
 import { IMPORT_TEMPLATE, mapRecords, parseCsv, userRowSchema } from "@/lib/user-import";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 type RowResult = { row: number; email: string; status: "created" | "updated" | "error"; message?: string; password?: string };
 
@@ -23,6 +24,7 @@ function download(filename: string, text: string) {
 }
 
 export default function ImportUsersPage() {
+  const confirm = useConfirm();
   const [text, setText] = useState("");
   const [results, setResults] = useState<RowResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export default function ImportUsersPage() {
 
   async function onImport() {
     if (!preview || preview.missing.length > 0 || preview.rows.length === 0) return;
-    if (!window.confirm(`นำเข้า ${preview.rows.length} รายการ ใช่หรือไม่?`)) return;
+    if (!await confirm(`นำเข้า ${preview.rows.length} รายการ ใช่หรือไม่?`)) return;
     setBusy(true);
     setError(null);
     try {

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { describeAdminError } from "@/lib/admin-client";
 import { ApiError, apiDelete, apiPost } from "@/lib/api-client";
 import { getClientFirestore } from "@/lib/firebase-client";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 type Item = { id: string; name: string };
 const CODE_RE = /^[a-z0-9][a-z0-9-]{0,40}$/;
@@ -35,6 +36,7 @@ export function CollectionManager({
   deleteWarning: string;
   moveStudents?: boolean;
 }) {
+  const confirm = useConfirm();
   const [items, setItems] = useState<Item[] | null>(null);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -95,7 +97,7 @@ export function CollectionManager({
   async function onDelete(item: Item) {
     setError(null);
     setNotice(null);
-    if (!window.confirm(`ลบ "${item.name}" ใช่หรือไม่?\n${deleteWarning}`)) return;
+    if (!await confirm(`ลบ "${item.name}" ใช่หรือไม่?\n${deleteWarning}`)) return;
     const base = `/api/admin/catalog/${collectionName}/${encodeURIComponent(item.id)}`;
     try {
       try {
@@ -108,7 +110,7 @@ export function CollectionManager({
           .filter(([, n]) => n > 0)
           .map(([k, n]) => `${USAGE_LABEL[k] ?? k} ${n} รายการ`)
           .join(", ");
-        if (!window.confirm(`"${item.name}" ยังถูกใช้งานอยู่: ${detail}\nลบต่อไปหรือไม่?`)) return;
+        if (!await confirm(`"${item.name}" ยังถูกใช้งานอยู่: ${detail}\nลบต่อไปหรือไม่?`)) return;
         await apiDelete(`${base}?force=1`);
       }
       setItems((list) => (list ?? []).filter((i) => i.id !== item.id));
@@ -120,7 +122,7 @@ export function CollectionManager({
   async function onMoveStudents(item: Item) {
     const target = items?.find((i) => i.id === moveTo);
     if (!target) return setError("กรุณาเลือกห้องปลายทาง");
-    if (!window.confirm(`ย้ายนักเรียนทั้งหมดจาก "${item.name}" ไป "${target.name}"?\n(นักเรียนต้องเข้าสู่ระบบใหม่)`)) return;
+    if (!await confirm(`ย้ายนักเรียนทั้งหมดจาก "${item.name}" ไป "${target.name}"?\n(นักเรียนต้องเข้าสู่ระบบใหม่)`)) return;
     setError(null);
     setNotice(null);
     setBusy(true);

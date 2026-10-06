@@ -14,8 +14,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth-context";
 import { deleteQuestion, listMyQuestions, listSubjects } from "@/lib/questions";
 import { QUESTION_TYPE_LABEL, type QuestionDoc } from "@/lib/schemas";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export default function QuestionBankPage() {
+  const confirm = useConfirm();
   const { user } = useAuth();
   const [questions, setQuestions] = useState<QuestionDoc[] | null>(null);
   const [subjects, setSubjects] = useState<Record<string, string>>({});
@@ -45,7 +47,7 @@ export default function QuestionBankPage() {
   );
 
   async function onDelete(q: QuestionDoc) {
-    if (!window.confirm("ลบข้อสอบข้อนี้ใช่หรือไม่?")) return;
+    if (!await confirm("ลบข้อสอบข้อนี้ใช่หรือไม่?")) return;
     try {
       await deleteQuestion(q.id);
       setQuestions((qs) => (qs ?? []).filter((x) => x.id !== q.id));

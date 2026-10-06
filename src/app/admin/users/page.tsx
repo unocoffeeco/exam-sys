@@ -21,6 +21,7 @@ import { describeAdminError, loadClassrooms, selectClass, type NamedItem } from 
 import { listUsers, type UserRecord } from "@/lib/admin-users";
 import { apiDelete, apiPatch, apiPost } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 type Role = UserRecord["role"];
 
@@ -40,6 +41,7 @@ function CreateUserCard({
   onCreated: (u: UserRecord, password?: string) => void;
   onError: (msg: string) => void;
 }) {
+  const confirm = useConfirm();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("STUDENT");
@@ -49,7 +51,7 @@ function CreateUserCard({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (role === "ADMIN" && !window.confirm("สร้างบัญชีผู้ดูแลระบบ? ผู้ดูแลระบบจัดการข้อมูลทั้งหมดได้")) return;
+    if (role === "ADMIN" && !await confirm("สร้างบัญชีผู้ดูแลระบบ? ผู้ดูแลระบบจัดการข้อมูลทั้งหมดได้")) return;
     setBusy(true);
     try {
       const r = await apiPost<{ uid: string; password?: string }>("/api/admin/users", {
@@ -227,6 +229,7 @@ function EditPanel({
 }
 
 export default function AdminUsersPage() {
+  const confirm = useConfirm();
   const { user: me } = useAuth();
   const [users, setUsers] = useState<UserRecord[] | null>(null);
   const [rooms, setRooms] = useState<NamedItem[]>([]);
@@ -287,24 +290,24 @@ export default function AdminUsersPage() {
     }
   }
 
-  const onMove = (u: UserRecord, classroomId: string) => {
+  const onMove = async (u: UserRecord, classroomId: string) => {
     if (!classroomId || classroomId === u.classroomId) return;
-    if (!window.confirm(`ย้าย ${u.name} ไป ${roomName(classroomId)}? (ผู้ใช้จะต้องเข้าสู่ระบบใหม่)`)) return;
+    if (!await confirm(`ย้าย ${u.name} ไป ${roomName(classroomId)}? (ผู้ใช้จะต้องเข้าสู่ระบบใหม่)`)) return;
     void patch(u, { classroomId }, (x) => ({ ...x, classroomId }));
   };
-  const onReset = (u: UserRecord) => {
-    if (!window.confirm(`รีเซ็ตรหัสผ่านของ ${u.name}?`)) return;
+  const onReset = async (u: UserRecord) => {
+    if (!await confirm(`รีเซ็ตรหัสผ่านของ ${u.name}?`)) return;
     void patch(u, { resetPassword: true }, (x) => x, (r) => `รหัสผ่านใหม่ของ ${u.name}: ${r.password} (แสดงครั้งเดียว กรุณาจดไว้)`);
   };
-  const onToggle = (u: UserRecord) => {
+  const onToggle = async (u: UserRecord) => {
     const disabled = !u.disabled;
-    if (!window.confirm(`${disabled ? "ระงับ" : "เปิดใช้งาน"}บัญชีของ ${u.name}?`)) return;
+    if (!await confirm(`${disabled ? "ระงับ" : "เปิดใช้งาน"}บัญชีของ ${u.name}?`)) return;
     void patch(u, { disabled }, (x) => ({ ...x, disabled }));
   };
 
-  function onSave(u: UserRecord, body: { name?: string; email?: string; role?: Role; classroomId?: string }) {
-    if (body.role === "ADMIN" && !window.confirm(`ให้ ${u.name} เป็นผู้ดูแลระบบ?`)) return;
-    if (body.role && u.role === "ADMIN" && !window.confirm(`ถอดสิทธิ์ผู้ดูแลระบบของ ${u.name}?`)) return;
+  async function onSave(u: UserRecord, body: { name?: string; email?: string; role?: Role; classroomId?: string }) {
+    if (body.role === "ADMIN" && !await confirm(`ให้ ${u.name} เป็นผู้ดูแลระบบ?`)) return;
+    if (body.role && u.role === "ADMIN" && !await confirm(`ถอดสิทธิ์ผู้ดูแลระบบของ ${u.name}?`)) return;
     void patch(
       u,
       body,
@@ -323,7 +326,7 @@ export default function AdminUsersPage() {
   }
 
   async function onDelete(u: UserRecord) {
-    if (!window.confirm(`ลบบัญชี "${u.name}" ถาวร?\nไม่สามารถกู้คืนได้`)) return;
+    if (!await confirm(`ลบบัญชี "${u.name}" ถาวร?\nไม่สามารถกู้คืนได้`)) return;
     resetMessages();
     setBusyUid(u.uid);
     try {
@@ -340,7 +343,7 @@ export default function AdminUsersPage() {
 
   async function onTransfer(u: UserRecord, toUid: string) {
     const to = teachers.find((t) => t.uid === toUid);
-    if (!to || !window.confirm(`โอนข้อสอบและชุดสอบทั้งหมดของ ${u.name} ให้ ${to.name}?`)) return;
+    if (!to || !await confirm(`โอนข้อสอบและชุดสอบทั้งหมดของ ${u.name} ให้ ${to.name}?`)) return;
     resetMessages();
     setBusyUid(u.uid);
     try {

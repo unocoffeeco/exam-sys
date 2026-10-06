@@ -25,6 +25,7 @@ import { formatAwayDuration, integrityLevel } from "@/lib/integrity";
 import { ROW_STATUS_LABEL, summarize } from "@/lib/report";
 import { loadExamResultsAsAdmin, type ResultRow } from "@/lib/results";
 import { EXAM_STATUS_LABEL } from "@/lib/schemas";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 async function fetchRows(examId: string): Promise<ResultRow[]> {
   let loaded = await loadExamResultsAsAdmin(examId);
@@ -37,6 +38,7 @@ async function fetchRows(examId: string): Promise<ResultRow[]> {
 }
 
 export default function AdminExamDetailPage() {
+  const confirm = useConfirm();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [exam, setExam] = useState<AdminExam | null>(null);
@@ -98,14 +100,14 @@ export default function AdminExamDetailPage() {
       applyExam(await fetchExam());
     }, okMsg);
 
-  const onClose = () => {
-    if (!window.confirm("ปิดการสอบนี้ทันที? นักเรียนที่ยังไม่เริ่มจะเข้าสอบไม่ได้")) return;
+  const onClose = async () => {
+    if (!await confirm("ปิดการสอบนี้ทันที? นักเรียนที่ยังไม่เริ่มจะเข้าสอบไม่ได้")) return;
     void patchExam({ status: "CLOSED" }, "ปิดการสอบแล้ว");
   };
-  const onReopen = () => {
+  const onReopen = async () => {
     const closeAtMs = fromLocalInput(closeAt);
     if (!closeAtMs) return setError("กรุณาระบุเวลาปิดใหม่");
-    if (!window.confirm("เปิดการสอบนี้อีกครั้งตามเวลาปิดที่ระบุ?")) return;
+    if (!await confirm("เปิดการสอบนี้อีกครั้งตามเวลาปิดที่ระบุ?")) return;
     void patchExam({ status: "PUBLISHED", closeAtMs }, "เปิดการสอบอีกครั้งแล้ว");
   };
   const onSaveWindow = () => {
@@ -117,18 +119,18 @@ export default function AdminExamDetailPage() {
     );
   };
 
-  const onDelete = () => {
+  const onDelete = async () => {
     if (!exam) return;
     const n = rows?.length ?? 0;
-    if (!window.confirm(`ลบชุดสอบ "${exam.title}" ถาวร?\nรวมถึงผลสอบของนักเรียน ${n} คน ไม่สามารถกู้คืนได้`)) return;
+    if (!await confirm(`ลบชุดสอบ "${exam.title}" ถาวร?\nรวมถึงผลสอบของนักเรียน ${n} คน ไม่สามารถกู้คืนได้`)) return;
     void run(async () => {
       await apiDelete(`/api/admin/exams/${id}`);
       router.replace("/admin/exams");
     });
   };
 
-  const onResetAttempt = (r: ResultRow) => {
-    if (!window.confirm(`รีเซ็ตการสอบของ ${r.studentName}?\nคำตอบและคะแนนจะถูกลบ และนักเรียนเริ่มสอบใหม่ได้ (ถ้าการสอบยังเปิดอยู่)`)) return;
+  const onResetAttempt = async (r: ResultRow) => {
+    if (!await confirm(`รีเซ็ตการสอบของ ${r.studentName}?\nคำตอบและคะแนนจะถูกลบ และนักเรียนเริ่มสอบใหม่ได้ (ถ้าการสอบยังเปิดอยู่)`)) return;
     void run(async () => {
       await apiDelete(`/api/admin/attempts/${r.attemptId}`);
       setRows((list) => (list ?? []).filter((x) => x.attemptId !== r.attemptId));

@@ -21,11 +21,13 @@ import { apiPost, describeApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { deleteExam, listMyExams } from "@/lib/exams";
 import { EXAM_STATUS_LABEL, type ExamDoc, type ExamStatus } from "@/lib/schemas";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const fmt = (ms: number | null) =>
   ms == null ? "—" : new Date(ms).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
 
 export default function ExamsPage() {
+  const confirm = useConfirm();
   const { user } = useAuth();
   const [exams, setExams] = useState<ExamDoc[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export default function ExamsPage() {
   }
 
   async function onPublish(e: ExamDoc) {
-    if (!window.confirm(`เผยแพร่ "${e.title}" ใช่หรือไม่? หลังเผยแพร่จะแก้ไขข้อสอบไม่ได้`)) return;
+    if (!await confirm(`เผยแพร่ "${e.title}" ใช่หรือไม่? หลังเผยแพร่จะแก้ไขข้อสอบไม่ได้`)) return;
     setError(null);
     setBusyId(e.id);
     try {
@@ -65,7 +67,7 @@ export default function ExamsPage() {
   }
 
   async function onClose(e: ExamDoc) {
-    if (!window.confirm(`ปิดการสอบ "${e.title}" ใช่หรือไม่?`)) return;
+    if (!await confirm(`ปิดการสอบ "${e.title}" ใช่หรือไม่?`)) return;
     setError(null);
     setBusyId(e.id);
     try {
@@ -79,7 +81,7 @@ export default function ExamsPage() {
   }
 
   async function onDelete(e: ExamDoc) {
-    if (!window.confirm(`ลบชุดสอบ "${e.title}" ใช่หรือไม่?`)) return;
+    if (!await confirm(`ลบชุดสอบ "${e.title}" ใช่หรือไม่?`)) return;
     try {
       await deleteExam(e.id);
       setExams((list) => (list ?? []).filter((x) => x.id !== e.id));

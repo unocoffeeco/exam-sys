@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input";
 import { describeAdminError, loadSubjects, nameOf, selectClass, type AdminQuestion, type NamedItem } from "@/lib/admin-client";
 import { apiDelete, apiGet } from "@/lib/api-client";
 import { QUESTION_TYPE_LABEL, QUESTION_TYPES, type QuestionType } from "@/lib/schemas";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const PAGE = 30;
 
 export default function AdminQuestionsPage() {
+  const confirm = useConfirm();
   const [questions, setQuestions] = useState<AdminQuestion[] | null>(null);
   const [subjects, setSubjects] = useState<NamedItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export default function AdminQuestionsPage() {
 
   async function onDelete(q: AdminQuestion) {
     const used = q.usedIn > 0 ? `\nข้อสอบนี้ถูกใช้ในชุดสอบ ${q.usedIn} ชุด (ชุดที่เผยแพร่แล้วไม่ได้รับผลกระทบ ส่วนฉบับร่างจะเผยแพร่ไม่ได้จนกว่าครูจะแก้)` : "";
-    if (!window.confirm(`ลบข้อสอบนี้ถาวร?\n"${q.body.slice(0, 80)}"${used}`)) return;
+    if (!await confirm(`ลบข้อสอบนี้ถาวร?\n"${q.body.slice(0, 80)}"${used}`)) return;
     setError(null);
     setNotice(null);
     setBusyId(q.id);

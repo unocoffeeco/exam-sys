@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth-context";
 import { examFromData } from "@/lib/exams";
 import { examCardState } from "@/lib/exam-session";
 import { getClientFirestore } from "@/lib/firebase-client";
+import { getServerOffset } from "@/lib/server-time";
 import type { ExamDoc } from "@/lib/schemas";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
@@ -36,6 +37,7 @@ export default function StudentHome() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(0);
+  const [offsetMs, setOffsetMs] = useState(0); // server clock - client clock, fetched once
 
   useEffect(() => {
     if (!user) return;
@@ -56,11 +58,13 @@ export default function StudentHome() {
           ),
           listMyAttempts(user.uid),
           listMyVisibleResults(user.uid),
+          getServerOffset(),
         ]);
       })
-      .then(([examSnap, myAttempts, myScores]) => {
+      .then(([examSnap, myAttempts, myScores, offset]) => {
         if (cancelled) return;
-        setNow(Date.now());
+        setOffsetMs(offset);
+        setNow(Date.now() + offset);
         setExams(
           examSnap.docs.map((d) => examFromData(d.id, d.data())).sort((a, b) => (a.openAtMs ?? 0) - (b.openAtMs ?? 0)),
         );
@@ -79,6 +83,14 @@ export default function StudentHome() {
       cancelled = true;
     };
   }, [user]);
+
+  // Re-evaluate card states as time passes (no Firestore/API calls: it only recomputes from the loaded data).
+  const hasTimedCards = exams !== null && exams.length > 0;
+  useEffect(() => {
+    if (!hasTimedCards) return;
+    const id = window.setInterval(() => setNow(Date.now() + offsetMs), 15_000);
+    return () => window.clearInterval(id);
+  }, [hasTimedCards, offsetMs]);
 
   async function onStart(exam: ExamDoc) {
     setError(null);
@@ -192,10 +204,16 @@ export default function StudentHome() {
                       <span>หมดเวลารับสอบแล้ว</span>
                     </div>
                   )}
+                  {state === "EXPIRED" && (
+                    <div className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                      <AlertCircle className="size-3.5" />
+                      <span>หมดเวลาทำข้อสอบแล้ว · กดปุ่มด้านข้างเพื่อให้ระบบส่งคำตอบที่บันทึกไว้</span>
+                    </div>
+                  )}
                   {state === "NOT_OPEN" && (
                     <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
                       <Clock className="size-3.5" />
-                      <span>ยังไม่ถึงเวลาเปิดสอบ</span>
+                      <span>ยังไม่ถึงเวลาเปิดสอบ · เปิด {fmt(exam.openAtMs)}</span>
                     </div>
                   )}
                 </div>
@@ -226,7 +244,7 @@ export default function StudentHome() {
                       href={`/student/exam/${attempt.id}`}
                       className={buttonVariants({ variant: "outline", className: "gap-2 w-full sm:w-auto" })}
                     >
-                      <span>ส่งงานหลังหมดเวลา</span>
+                      <span>ดูสถานะ / ส่งคำตอบที่ค้าง</span>
                     </Link>
                   )}
                 </div>
